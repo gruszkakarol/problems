@@ -19,13 +19,16 @@ fn part_one(nums: &[u64]) -> u64 {
 }
 
 fn part_two(nums: &[u64], expected: u64) -> u64 {
-    let sets = std::iter::repeat(nums)
-        .enumerate()
-        .take(nums.len())
-        .map(|(i, vec)| &vec[0..i])
-        .find(|vec| vec.iter().sum::<u64>() == expected);
-    dbg!(sets);
-    0
+    let set = (1..nums.len())
+        .filter_map(|size| {
+            nums.windows(size)
+                .find(|set| set.iter().cloned().sum::<u64>() == expected)
+        })
+        .filter(|numbers| !numbers.contains(&expected))
+        .collect::<Vec<_>>()[0];
+
+    dbg!(set, set.iter().min().unwrap(), set.iter().max().unwrap());
+    set.iter().min().unwrap() + set.iter().max().unwrap()
 }
 
 fn main() -> std::io::Result<()> {
@@ -36,5 +39,6 @@ fn main() -> std::io::Result<()> {
     let first_answer = part_one(&input);
     println!("The answer to the first part is {}", first_answer);
     let second_answer = part_two(&input, first_answer);
+    println!("The answer to the second part is {}", second_answer);
     Ok(())
 }
