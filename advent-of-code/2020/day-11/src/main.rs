@@ -1,114 +1,116 @@
-const ROW_SIZE: i32 = 10;
-
 // SEATS
 const OCCUPIED: char = '#';
 const EMPTY: char = 'L';
 const FLOOR: char = '.';
 
-struct Grid {
-    places: Vec<char>,
-    // Vector of occupied places
-    occupied: Vec<usize>,
+struct Plane {
+    places: Vec<Vec<char>>,
 }
 
-impl Grid {
-    pub fn new(places: Vec<char>) -> Self {
-        Self {
-            places,
-            occupied: vec![],
-        }
+impl Plane {
+    pub fn new(places: Vec<Vec<char>>) -> Self {
+        Self { places }
     }
 
     pub fn tick(&mut self) -> usize {
-        self.print();
-
         let mut changed = 0;
 
         self.places = self
             .places
             .iter()
             .enumerate()
-            .map(|(index, place)| {
-                let neighbours = self.neighbours(index);
-                let (empty, occupied): (Vec<char>, Vec<char>) = neighbours
-                    .iter()
-                    .filter(|&&p| p != FLOOR)
-                    .partition(|&&n| n == EMPTY);
-                print!(
-                    "  {} {} {:?} {:?} {:?}  ",
-                    index, place, &neighbours, &empty, &occupied
-                );
-                match (empty.len(), occupied.len(), place) {
-                    (_, 0, &EMPTY) => {
-                        changed += 1;
-                        OCCUPIED
-                    }
-                    (_, 4..=8, &OCCUPIED) => {
-                        changed += 1;
-                        EMPTY
-                    }
-                    _ => *place,
-                }
+            .map(|(row_index, row)| {
+                row.iter()
+                    .cloned()
+                    .enumerate()
+                    .map(|(cell_index, seat)| {
+                        // Get seat's neighbours
+                        let neighbours = self.neighbours((cell_index as i32, row_index as i32));
+                        // Count occupied and empty neighboring seats
+                        let (empty, occupied): (Vec<char>, Vec<char>) = neighbours
+                            .iter()
+                            .filter_map(|&n| n.filter(|&c| c != FLOOR))
+                            .partition(|&n| n == EMPTY);
+                        // Apply rules and see whether seat should change its state or not
+                        match (empty.len(), occupied.len(), seat) {
+                            (_, 0, EMPTY) => {
+                                changed += 1;
+                                OCCUPIED
+                            }
+                            (_, 4..=8, OCCUPIED) => {
+                                changed += 1;
+                                EMPTY
+                            }
+                            _ => seat,
+                        }
+                    })
+                    .collect()
             })
             .collect();
 
         changed
     }
 
-    // 0 1 2 3 4 5 6 7 8 9
-    // 0 1 2 3 4 5 6 7 8 9
-    // 0 1 2 3 4 5 6 7 8 9
+    pub fn count_occupied(&self) -> usize {
+        self.places
+            .iter()
+            .map(|row| row.iter().filter(|&&c| c == OCCUPIED).count())
+            .sum()
+    }
 
     pub fn print(&self) {
         println!("\n\n");
-        for (i, place) in self.places.iter().enumerate() {
-            if i % ROW_SIZE as usize == 0 {
-                println!();
+
+        for row in &self.places {
+            for cell in row {
+                print!("{}", cell);
             }
-
-            print!("{}", place);
+            println!();
         }
     }
 
-    pub fn get(&self, position: usize) -> char {
-        self.places.get(position).map(|p| *p).unwrap_or(FLOOR)
+    pub fn get(&self, position: (i32, i32), offset: (i32, i32)) -> Option<char> {
+        if position.0 + offset.0 < 0 || position.1 + offset.1 < 0 {
+            None
+        } else {
+            self.places
+                .get((position.1 + offset.1) as usize)
+                .map(|row| row.get((position.0 + offset.0) as usize).map(|&c| c))
+                .flatten()
+        }
     }
 
-    pub fn neighbours(&self, position: usize) -> [char; 8] {
-        if position == 9 {
-            dbg!(position);
-        }
-
-        macro_rules! pos {
-            ( $offset:expr ) => {{
-                self.get((position as i32 + $offset) as usize)
-            }};
-        };
-
+    pub fn neighbours(&self, position: (i32, i32)) -> [Option<char>; 8] {
         [
-            pos!(-ROW_SIZE - 1),
-            pos!(-ROW_SIZE),
-            pos!(-ROW_SIZE + 1),
-            pos!(-1),
-            pos!(1),
-            pos!(ROW_SIZE - 1),
-            pos!(ROW_SIZE),
-            pos!(ROW_SIZE + 1),
+            self.get(position, (-1, -1)),
+            self.get(position, (0, -1)),
+            self.get(position, (1, -1)),
+            self.get(position, (-1, 0)),
+            self.get(position, (1, 0)),
+            self.get(position, (-1, 1)),
+            self.get(position, (0, 1)),
+            self.get(position, (1, 1)),
         ]
+    }
+
+    pub fn first_part(&mut self) -> usize {
+        while self.tick() != 0 {
+            self.print();
+        }
+
+        self.count_occupied()
     }
 }
 
 fn main() -> std::io::Result<()> {
-    let places: Vec<char> = std::fs::read_to_string("input.txt")?
-        .chars()
-        .filter(|&c| c != '\n')
+    let places: Vec<Vec<char>> = std::fs::read_to_string("input.txt")?
+        .lines()
+        .map(|l| l.chars().filter(|&c| c != '\n').collect())
         .collect();
 
-    let mut grid = Grid::new(places);
+    let mut plane = Plane::new(places);
 
-    &grid.tick();
-    &grid.tick();
-    &grid.tick();
-
+    let first_answer = plane.first_part();
+    println!("The answer to the first part is {}", first_answer);
     Ok(())
 }
