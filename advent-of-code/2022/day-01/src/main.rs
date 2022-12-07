@@ -23,6 +23,11 @@ fn main() {
         })
         .collect();
 
-    let part_one = &elfs.iter().map(|elf| elf.total_calories()).max().unwrap();
-    println!("The answer to the part one is {}", part_one);
+    let mut total_calories: Vec<Calories> = elfs.iter().map(|elf| elf.total_calories()).collect();
+    total_calories.sort();
+
+    let first_part = total_calories.last().unwrap();
+    println!("First part: {}", first_part);
+    let second_part: Calories = total_calories.iter().rev().take(3).sum();
+    println!("Second part: {}", second_part);
 }
